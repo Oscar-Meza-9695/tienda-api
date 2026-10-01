@@ -32,4 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 
-   src/main/resources/application.properties
+src/main/resources/application.properties
+
+deploy/config.bat
+*.jar
+log.txt

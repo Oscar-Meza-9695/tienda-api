@@ -1,0 +1,48 @@
+
+
+
+Cargando · HTML
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abriendo la tienda…</title>
+<style>
+:root{--ink:#14213d;--bg:#eef1f7;--acc:#1f4fa3;--sun:#f2a900;--red:#c8372d}
+@media(prefers-color-scheme:dark){:root{--ink:#e7ecf8;--bg:#0d1424;--acc:#8db0f5}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:18px/1.5 "Segoe UI",system-ui,sans-serif;text-align:center;padding:1rem}
+main{max-width:420px}
+svg{width:150px;height:auto}
+h1{font-family:Georgia,serif;font-size:2rem;margin:.6rem 0 .2rem}
+p{margin:.3rem 0}.sub{opacity:.75}
+.pista{display:inline-block;margin-top:1.2rem;height:6px;width:220px;background:color-mix(in srgb,var(--acc) 18%,transparent);border-radius:9px;overflow:hidden}
+.pista i{display:block;height:100%;width:40%;background:var(--sun);border-radius:9px;animation:ir 1.3s ease-in-out infinite}
+@keyframes ir{0%{translate:-100%}100%{translate:260%}}
+#ayuda{display:none;margin-top:1.4rem;padding:1rem;border-left:5px solid var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);text-align:left;font-size:.95rem;border-radius:8px}
+@media(prefers-reduced-motion:reduce){.pista i{animation:none;width:100%}}
+</style></head><body><main>
+<svg viewBox="0 0 320 260" aria-hidden="true"><rect x="30" y="100" width="260" height="140" rx="6" fill="#fff"/><path d="M20 100l18-62h244l18 62z" fill="#f2a900"/><path d="M56 38h26l-6 62H50zM108 38h26l-2 62h-26zM160 38h26l2 62h-26zM212 38h26l6 62h-26z" fill="#fff" opacity=".9"/><path d="M20 100a30 22 0 0 0 60 0 30 22 0 0 0 60 0 30 22 0 0 0 60 0 30 22 0 0 0 60 0 30 22 0 0 0 60 0z" fill="#d98e00"/><rect x="62" y="136" width="70" height="52" rx="4" fill="#dbe6fb"/><rect x="190" y="136" width="70" height="104" rx="4" fill="#1f4fa3"/><circle cx="250" cy="190" r="4" fill="#f2a900"/></svg>
+<h1 id="titulo">Abriendo la tienda…</h1>
+<p id="msj">Esto tarda menos de un minuto. No cierres esta ventana.</p>
+<p class="sub" id="seg">Esperando 0 segundos</p>
+<div class="pista" id="pista"><i></i></div>
+<div id="ayuda" role="alert"><b>Está tardando más de lo normal.</b><br>Revisa que la ventana negra "Tienda - NO CIERRES ESTA VENTANA" siga abierta y que la computadora tenga encendida la base de datos (MySQL). Si no abre, pide ayuda a quien instaló el sistema.</div>
+</main>
+<script>
+const URL_TIENDA='http://127.0.0.1:8080/',t0=Date.now();
+const $=i=>document.getElementById(i);
+async function listo(){
+  try{await fetch(URL_TIENDA+'api/auth/me',{mode:'no-cors',cache:'no-store'});return true}catch{return false}
+}
+async function ciclo(){
+  const s=Math.floor((Date.now()-t0)/1000);
+  $('seg').textContent='Esperando '+s+' segundo'+(s===1?'':'s');
+  if(s>=90)$('ayuda').style.display='block';
+  if(await listo()){
+    $('titulo').textContent='¡Listo!';$('msj').textContent='Abriendo la tienda…';$('pista').style.display='none';
+    setTimeout(()=>location.replace(URL_TIENDA),600);return;
+  }
+  setTimeout(ciclo,1500);
+}
+ciclo();
+</script></body></html>
+ 
