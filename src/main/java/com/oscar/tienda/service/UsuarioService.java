@@ -1,45 +1,41 @@
 package com.oscar.tienda.service;
 
+import com.oscar.tienda.exception.RecursoNoEncontradoException;
+import com.oscar.tienda.exception.ReglaNegocioException;
 import com.oscar.tienda.model.Usuario;
 import com.oscar.tienda.repository.UsuarioRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
+// La verificación de credenciales ya no vive aquí: la hace Spring Security
+// (AuthenticationManager + DbUserDetailsService), con un mensaje único de error.
 @Service
+@RequiredArgsConstructor
 public class UsuarioService {
-    @Autowired
-    UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder encoder;
 
-    //Metodo para encriptar contraseña
-    private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-
-    //Metodo para registrar usuario
-    public Usuario registrarUsuario (String nombre, String contraseña){
-        if(usuarioRepository.findByUsuario(nombre).isPresent()){
-            throw new RuntimeException("El usuario ya existe");
+    @Transactional
+    public Usuario registrarUsuario(String nombre, String password) {
+        if (usuarioRepository.findByUsername(nombre).isPresent()) {
+            throw new ReglaNegocioException("El usuario ya existe");
         }
-        Usuario nuevoUsuario = new Usuario();
-        nuevoUsuario.setUsuario(nombre);
-        nuevoUsuario.setPassword(encoder.encode(contraseña));
-        return usuarioRepository.save(nuevoUsuario);
+        Usuario nuevo = new Usuario();
+        nuevo.setUsername(nombre);
+        nuevo.setPassword(encoder.encode(password));
+        return usuarioRepository.save(nuevo);
     }
 
-    //Metodo del login
-    public boolean login(String nombre, String contraseña){
-        Optional<Usuario> usuario = usuarioRepository.findByUsuario(nombre);
-        if(usuario.isEmpty()){
-            throw new RuntimeException("Usuario no encontrado");
+    @Transactional
+    public void cambiarPassword(String username, String actual, String nueva) {
+        Usuario u = usuarioRepository.findByUsername(username)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
+        if (!encoder.matches(actual, u.getPassword())) {
+            throw new ReglaNegocioException("La contraseña actual es incorrecta");
         }
-        // matches() compara el password plano con el encriptado
-        // nunca desencripta — solo verifica si coinciden
-        boolean contraseñaCorrecta = encoder.matches(contraseña,usuario.get().getPassword());
-        if(!contraseñaCorrecta){
-            throw new RuntimeException("Contraseña incorrecta");
-        }
-        return true;
+        u.setPassword(encoder.encode(nueva));
+        usuarioRepository.save(u);
     }
-
 }

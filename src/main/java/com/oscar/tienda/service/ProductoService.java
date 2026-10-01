@@ -1,70 +1,116 @@
 package com.oscar.tienda.service;
 
+import com.oscar.tienda.dto.ProductoRequestDTO;
+import com.oscar.tienda.dto.ProductoResponseDTO;
+import com.oscar.tienda.exception.RecursoNoEncontradoException;
+import com.oscar.tienda.exception.ReglaNegocioException;
 import com.oscar.tienda.model.Producto;
 import com.oscar.tienda.repository.ProductoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ProductoService {
-    @Autowired
-    ProductoRepository productoRepository;
+    private final ProductoRepository productoRepository;
 
-    public List<Producto>listarProductos(){
-        return productoRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<ProductoResponseDTO> listarActivos() {
+        return productoRepository.findByActivoTrue().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    public List<Producto> buscarProductoNombre(String nombre) {
-        List<Producto> productos = productoRepository
-                .findByNombreContainingIgnoreCase(nombre);
-        if (productos.isEmpty()) {
-            throw new RuntimeException("No se encontró ningún producto con ese nombre");
-        }
-        return productos;
+    @Transactional(readOnly = true)
+    public List<ProductoResponseDTO> listarInactivos(String nombre) {
+        List<Producto> productos = (nombre == null || nombre.isBlank())
+                ? productoRepository.findByActivoFalse()
+                : productoRepository.findByNombreContainingIgnoreCaseAndActivoFalse(nombre);
+        return productos.stream().map(this::toResponse).toList();
     }
 
-    public Producto buscarPorCodigoBarras(String codigoBarras){
-        Producto producto = productoRepository.findByCodigoBarras(codigoBarras);
-        if(producto == null){
-            throw new RuntimeException("No se encontro ningun producto relacionado con el codigo de barras");
-        }
-        return producto;
+    @Transactional(readOnly = true)
+    public List<ProductoResponseDTO> buscarPorNombre(String nombre){
+        return productoRepository.findByNombreContainingIgnoreCaseAndActivoTrue(nombre)
+                .stream().map(this::toResponse)
+                .toList();
     }
 
-    public Producto guardarProducto (Producto producto){
-        Producto existente = productoRepository.findByCodigoBarras(producto.getCodigoBarras());
-        if(existente != null){
-            throw new RuntimeException("Ya existe un producto con ese codigo de barras: "+producto.getCodigoBarras());
-        }
-        return productoRepository.save(producto);
+    @Transactional(readOnly = true)
+    public ProductoResponseDTO buscarPorCodigoBarras(String codigoBarras){
+        Producto producto = productoRepository.findByCodigoBarras(codigoBarras)
+                .filter(Producto::getActivo)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe un producto con ese codigo de barras: " +
+                                codigoBarras));
+        return toResponse(producto);
     }
 
-    public void eliminarProducto(Long id){
-        if (!productoRepository.existsById(id)) {
-            throw new RuntimeException("Producto no encontrado");
+    @Transactional
+    public ProductoResponseDTO crear(ProductoRequestDTO dto){
+        if(productoRepository.existsByCodigoBarras(dto.codigoBarras())){
+            throw new ReglaNegocioException(
+                    "Ya existe un producto con ese codigo de barras: " + dto.codigoBarras());
         }
-        // Verificar que no tenga detalles de deuda asociados
-        // Si tiene deudas no se puede eliminar
-        Producto producto = productoRepository.findById(id).get();
-        if (producto != null) {
-            try {
-                productoRepository.deleteById(id);
-            } catch (Exception e) {
-                throw new RuntimeException(
-                        "No se puede eliminar el producto porque tiene deudas asociadas"
-                );
-            }
-        }
+        Producto producto = new Producto();
+        aplicarDatos(producto, dto);
+        return toResponse(productoRepository.save(producto));
     }
 
-    public Producto actualizarProducto(Long id, Producto productoNuevo){
-        Producto existente = productoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
-        existente.setNombre(productoNuevo.getNombre());
-        existente.setDescripcion(productoNuevo.getDescripcion());
-        existente.setPrecio(productoNuevo.getPrecio());
-        return productoRepository.save(existente);
+    @Transactional
+    public ProductoResponseDTO actualizar(Long idProducto, ProductoRequestDTO dto){
+        Producto producto = obtenerPorId(idProducto);
+
+        boolean cambioCodigo = !producto.getCodigoBarras().equals(dto.codigoBarras());
+        if(cambioCodigo && productoRepository.existsByCodigoBarras(dto.codigoBarras())){
+            throw new ReglaNegocioException(
+                    "Ya existe otro producto con ese codigo de barras: " + dto.codigoBarras()
+            );
+        }
+        aplicarDatos(producto, dto);
+        return toResponse(productoRepository.save(producto));
+    }
+
+    @Transactional
+    public void desactivar(Long idProducto){
+        Producto producto = obtenerPorId(idProducto);
+        producto.setActivo(false);
+        productoRepository.save(producto);
+    }
+
+    @Transactional
+    public void reactivar(Long idProducto){
+        Producto producto = obtenerPorId(idProducto);
+        producto.setActivo(true);
+        productoRepository.save(producto);
+    }
+
+    //Funcionas para busar y guardar datos a producto e imprimir
+    private Producto obtenerPorId(Long idProducto){
+        return productoRepository.findById(idProducto)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Producto no encontrado con el id: " +idProducto
+                ));
+    }
+
+    private void aplicarDatos(Producto producto, ProductoRequestDTO dto){
+        producto.setNombre(dto.nombre());
+        producto.setDescripcion(dto.descripcion());
+        producto.setPrecio(dto.precio());
+        producto.setCodigoBarras(dto.codigoBarras());
+    }
+
+    private ProductoResponseDTO toResponse(Producto p){
+        return new ProductoResponseDTO(
+                p.getIdProducto(),
+                p.getNombre(),
+                p.getDescripcion(),
+                p.getPrecio(),
+                p.getCodigoBarras(),
+                p.getActivo()
+        );
     }
 }

@@ -1,26 +1,29 @@
 package com.oscar.tienda.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
-@Data
+import java.math.BigDecimal;
+
+@NoArgsConstructor
+@Getter @Setter
 @Entity
-@Table(name = "productos")
 public class Producto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_producto")
     private Long idProducto;
 
     @Column(nullable = false)
     private String nombre;
 
-    @Column(nullable = false)
     private String descripcion;
 
-    @Column(nullable = false)
-    private Double precio;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal precio;
 
-    @Column(nullable = false, unique = true, name = "codigo_barras")
+    @Column(nullable = false, unique = true)
     private String codigoBarras;
+
+    @Column(nullable = false)
+    private Boolean activo = true; // nuevo: para no borrar productos con ventas
 }

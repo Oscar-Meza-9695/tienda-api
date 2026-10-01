@@ -1,30 +1,50 @@
 package com.oscar.tienda.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.oscar.tienda.enums.MetodoPago;
+import com.oscar.tienda.exception.ReglaNegocioException;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Data
-@Table(name = "pago")
+@NoArgsConstructor
+@Getter @Setter
 public class Pago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_pago")
     private Long idPago;
 
-    @Column(nullable = false)
-    private Double monto;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_deuda")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "pagos", "detalles"})
-    private Deuda deuda;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal monto;
 
     @Column(nullable = false)
-    private LocalDateTime fecha = LocalDateTime.now();
+    private Boolean anulada = false;
+
+    private LocalDateTime fechaAnulacion;
+
+    private String motivoAnulacion;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_cliente")
+    private Cliente cliente;
 
     @Column(nullable = false)
-    private String metodoPago = "Efectivo"; // valor por defecto
+    private LocalDateTime fechaPago = LocalDateTime.now();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MetodoPago metodoPago = MetodoPago.EFECTIVO;
+
+    public void anular(String motivo) {
+        if (Boolean.TRUE.equals(anulada)) {
+            throw new ReglaNegocioException("El pago ya está anulado");
+        }
+        this.anulada = true;
+        this.fechaAnulacion = LocalDateTime.now();
+        this.motivoAnulacion = motivo;
+    }
 }
